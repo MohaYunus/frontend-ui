@@ -1,266 +1,582 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
 import {
+  Alert,
   Box,
   Button,
-  Chip,
   IconButton,
+  InputAdornment,
+  MenuItem,
+  Paper,
+  Snackbar,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
-  Card,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import AddIcon from "@mui/icons-material/Add";
-import { DataGrid } from "@mui/x-data-grid";
 
-import { dummySuppliers } from "./dummySuppliers";
-import SupplierForm from "./SupplierForm";
-import PageContainer from "../../layout/PageContainer";
-import Pagination from "@mui/material/Pagination";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
-import { Snackbar, Alert } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+
+import FirstPageIcon from "@mui/icons-material/FirstPage";
+import LastPageIcon from "@mui/icons-material/LastPage";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+} from "@tanstack/react-table";
+
+import SupplierForm from "./SupplierForm";
+
+import {
+  createSupplierApi,
+  getSuppliersApi,
+  updateSupplierApi,
+  deleteSupplierApi,
+} from "../../api/supplier.api";
+
+import Breadcrumb from "../../Components/Breadcrumb";
+import CommonSnackbar from "../../components/CommonSnackbar";
+import ConfirmDeleteDialog from "../../components/ConfirmDeleteDialog";
 
 export default function SupplierListPage() {
-  const [suppliers, setSuppliers] = useState(dummySuppliers);
+  const [loading, setLoading] = useState(false);
+
+  const [suppliers, setSuppliers] = useState([]);
+
+  const [sorting, setSorting] = useState([]);
+
+  const [globalFilter, setGlobalFilter] = useState("");
+
   const [openForm, setOpenForm] = useState(false);
+
   const [editData, setEditData] = useState(null);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const [selectedSupplier, setSelectedSupplier] = useState(null);
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
 
-  const handleSave = (formData) => {
-    if (editData) {
-      // UPDATE
-      setSuppliers((prev) =>
-        prev.map((s) =>
-          s.id === editData.id ? { ...formData, id: editData.id } : s,
-        ),
-      );
+const handleCloseSnackbar = () => {
+  setSnackbar((prev) => ({
+    ...prev,
+    open: false,
+  }));
+};
+  // FETCH SUPPLIERS
+  const fetchSuppliers = async () => {
+  try {
+
+    setLoading(true);
+
+    const response = await getSuppliersApi(1, 1000);
+
+    console.log(response);
+
+    setSuppliers(
+      response?.data?.data || []
+    );
+
+  } catch (error) {
+
+    console.log(error);
+
+    setSuppliers([]);
+
+    setSnackbar({
+      open: true,
+      message: "Failed to fetch suppliers",
+      severity: "error",
+    });
+
+  } finally {
+
+    setLoading(false);
+  }
+};
+
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
+
+  // SAVE SUPPLIER
+  const handleSave = async (formData) => {
+    try {
+      setLoading(true);
+
+      const payload = {
+        companyName: formData.name,
+        contactName: formData.contactPerson,
+        phoneNumber: formData.phone,
+        gstNumber: formData.gstNumber,
+        createdBy: 1000,
+        updatedBy: 1000,
+      };
+
+      if (editData) {
+        await updateSupplierApi(editData.SUPPLIER_ID, {
+          ...payload,
+          updatedBy: 1000,
+        });
+
+        setSnackbar({
+          open: true,
+          message: "Supplier updated successfully",
+          severity: "success",
+        });
+      } else {
+        await createSupplierApi(payload);
+
+        setSnackbar({
+          open: true,
+          message: "Supplier created successfully",
+          severity: "success",
+        });
+      }
+
+      setOpenForm(false);
+
+      setEditData(null);
+
+      fetchSuppliers();
+    } catch (error) {
+      console.log(error);
 
       setSnackbar({
         open: true,
-        message: "Supplier updated successfully",
-        severity: "success",
+        message: error?.response?.data?.message || "Something went wrong",
+        severity: "error",
       });
-    } else {
-      // CREATE
-      setSuppliers((prev) => [
-        ...prev,
-        {
-          ...formData,
-          id: Date.now(),
-          modifiedDate: new Date().toLocaleDateString(),
-          modifiedBy: "admin",
-        },
-      ]);
-
-      setSnackbar({
-        open: true,
-        message: "Supplier created successfully",
-        severity: "success",
-      });
+    } finally {
+      setLoading(false);
     }
-
-    setOpenForm(false);
-    setEditData(null);
   };
 
+  // ADD
   const handleAdd = () => {
     setEditData(null);
+
     setOpenForm(true);
   };
 
+  // EDIT
   const handleEdit = (row) => {
     setEditData(row);
+
     setOpenForm(true);
   };
 
-  const columns = [
-    { field: "name", headerName: "SUPPLIER NAME", flex: 1, minWidth: 200 },
-    {
-      field: "contactPerson",
-      headerName: "CONTACT PERSON",
-      flex: 1,
-      minWidth: 180,
+  // DELETE
+  const handleDeleteClick = (row) => {
+    setSelectedSupplier(row);
+
+    setDeleteDialogOpen(true);
+  };
+
+const confirmDeleteSupplier = async () => {
+
+  try {
+
+    setLoading(true);
+
+    await deleteSupplierApi(
+      selectedSupplier.SUPPLIER_ID,
+      {
+        updatedBy: 1000,
+      }
+    );
+
+    setSnackbar({
+      open: true,
+      message: "Supplier deleted successfully",
+      severity: "success",
+    });
+
+    setDeleteDialogOpen(false);
+
+    setSelectedSupplier(null);
+
+    fetchSuppliers();
+
+  } catch (error) {
+
+    console.log(error);
+
+    setSnackbar({
+      open: true,
+      message:
+        error?.response?.data?.message ||
+        "Failed to delete supplier",
+      severity: "error",
+    });
+
+  } finally {
+
+    setLoading(false);
+  }
+};
+
+  // FILTERED DATA
+  const filteredData = useMemo(() => {
+    if (!globalFilter) return suppliers;
+
+    return suppliers.filter((item) =>
+      JSON.stringify(item).toLowerCase().includes(globalFilter.toLowerCase()),
+    );
+  }, [suppliers, globalFilter]);
+
+  // COLUMNS
+  const columns = useMemo(
+    () => [
+      {
+        header: "COMPANY NAME",
+        accessorKey: "COMPANY_NAME",
+      },
+      {
+        header: "CONTACT PERSON",
+        accessorKey: "CONTACT_NAME",
+      },
+      {
+        header: "PHONE NUMBER",
+        accessorKey: "PHONE_NUMBER",
+      },
+      {
+        header: "GST NUMBER",
+        accessorKey: "GST_NUMBER",
+      },
+      {
+        header: "ACTIONS",
+        cell: ({ row }) => (
+          <Stack direction="row" spacing={1}>
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => handleEdit(row.original)}
+            >
+              <EditOutlinedIcon />
+            </IconButton>
+
+            <IconButton
+              color="error"
+              size="small"
+              onClick={() => handleDeleteClick(row.original)}
+            >
+              <DeleteOutlineIcon />
+            </IconButton>
+          </Stack>
+        ),
+      },
+    ],
+    [],
+  );
+
+  // TABLE
+  const table = useReactTable({
+    data: filteredData,
+    columns,
+    state: {
+      sorting,
     },
-    { field: "phone", headerName: "PHONE", flex: 1, minWidth: 150 },
-    { field: "email", headerName: "EMAIL", flex: 1, minWidth: 220 },
-    {
-      field: "balance",
-      headerName: "BALANCE",
-      minWidth: 150,
-    },
-    { field: "modifiedDate", headerName: "MODIFIED", width: 130 },
-    { field: "modifiedBy", headerName: "MODIFIED BY", width: 130 },
-    {
-      field: "actions",
-      headerName: "ACTIONS",
-      width: 100,
-      renderCell: ({ row }) => (
-        <IconButton onClick={() => handleEdit(row)}>
-          <EditIcon color="primary" />
-        </IconButton>
-      ),
-    },
-  ];
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   return (
-    <PageContainer>
-      <Typography variant="h6" fontWeight={600} mb={2}>
-        Supplier List
-      </Typography>
-      <Card sx={{ p: 2 }}>
-        <Stack
-          direction="row"
+    <Box p={3}>
+      <Breadcrumb
+        heading="Supplier List"
+        showBreadcrumb={false}
+        showHeading={true}
+      />
+
+      <Paper
+        elevation={2}
+        sx={{
+          borderRadius: 3,
+          overflow: "hidden",
+        }}
+      >
+        {/* HEADER */}
+        <Box
+          p={3}
+          display="flex"
           justifyContent="space-between"
           alignItems="center"
-          mb={2}
+          flexWrap="wrap"
+          gap={2}
         >
           <TextField
-            placeholder="Search suppliers..."
+            placeholder={`Search ${filteredData.length} records...`}
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
             size="small"
-            sx={{ width: 300 }}
+            sx={{ width: 320 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: "text.secondary", fontSize: 20 }} />
+                  <SearchIcon />
                 </InputAdornment>
               ),
             }}
           />
+
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleAdd}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+            }}
           >
             Add Supplier
           </Button>
-        </Stack>
+        </Box>
 
-        <DataGrid
-          rows={suppliers}
-          columns={columns}
-          autoHeight
-          pagination
-          pageSizeOptions={[5, 10, 20]}
-          paginationModel={{ page, pageSize }}
-          onPaginationModelChange={(model) => {
-            setPage(model.page);
-            setPageSize(model.pageSize);
-          }}
-          disableRowSelectionOnClick
-          hideFooterSelectedRowCount
-          slots={{
-            footer: () => {
-              const totalPages = Math.ceil(suppliers.length / pageSize);
-
-              return (
-                <Box
-                  display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  px={2}
-                  py={1.5}
+        {/* TABLE */}
+        <TableContainer>
+          <Table>
+            <TableHead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow
+                  key={headerGroup.id}
                   sx={{
-                    borderTop: "2px solid #e0e0e0",
-                    mt: 1,
+                    backgroundColor: "#fafafa",
                   }}
                 >
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Typography variant="body2">Row per page</Typography>
-
-                    <Select
-                      value={pageSize}
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value));
-                        setPage(0);
-                      }}
-                      size="small"
+                  {headerGroup.headers.map((header) => (
+                    <TableCell
+                      key={header.id}
+                      onClick={header.column.getToggleSortingHandler()}
                       sx={{
-                        height: 32,
-                        minWidth: 70,
-                        "& .MuiSelect-select": {
-                          padding: "4px 10px",
-                        },
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      <MenuItem value={5}>5</MenuItem>
-                      <MenuItem value={10}>10</MenuItem>
-                      <MenuItem value={20}>20</MenuItem>
-                    </Select>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Box>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
+                        </Box>
 
-                    <Typography variant="body2">Go to</Typography>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "center",
+                            ml: 0.3,
+                            lineHeight: 0.7,
+                          }}
+                        >
+                          <KeyboardArrowUpIcon
+                            sx={{
+                              fontSize: 12,
+                              color:
+                                header.column.getIsSorted() === "asc"
+                                  ? "#BDBDBD"
+                                  : "#D6D6D6",
+                              mb: -0.3,
+                            }}
+                          />
 
-                    <Select
-                      value={page + 1}
-                      onChange={(e) => setPage(Number(e.target.value) - 1)}
-                      size="small"
-                      sx={{
-                        height: 32,
-                        minWidth: 60,
-                        "& .MuiSelect-select": {
-                          padding: "4px 10px",
-                        },
-                      }}
-                    >
-                      {Array.from({ length: totalPages }, (_, i) => (
-                        <MenuItem key={i + 1} value={i + 1}>
-                          {i + 1}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </Box>
+                          <KeyboardArrowDownIcon
+                            sx={{
+                              fontSize: 12,
+                              color:
+                                header.column.getIsSorted() === "desc"
+                                  ? "#BDBDBD"
+                                  : "#D6D6D6",
+                              mt: -0.3,
+                            }}
+                          />
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHead>
 
-                  <Pagination
-                    count={totalPages}
-                    page={page + 1}
-                    onChange={(e, value) => setPage(value - 1)}
-                    color="primary"
-                    shape="rounded"
-                    showFirstButton
-                    showLastButton
-                  />
-                </Box>
-              );
-            },
-          }}
-        />
-      </Card>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} align="center">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : table.getRowModel().rows.length > 0 ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    hover
+                    sx={{
+                      "&:hover": {
+                        backgroundColor: "#fafafa",
+                      },
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell ??
+                            cell.column.columnDef.accessorKey,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} align="center">
+                    No Data Found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
+        {/* PAGINATION */}
+        <Box
+          p={2}
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          flexWrap="wrap"
+          gap={2}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Typography variant="body2">Row per page</Typography>
+
+            <TextField
+              select
+              size="small"
+              value={table.getState().pagination.pageSize}
+              onChange={(e) => table.setPageSize(Number(e.target.value))}
+              sx={{ width: 80 }}
+            >
+              {[10, 20, 30, 40, 50].map((pageSize) => (
+                <MenuItem key={pageSize} value={pageSize}>
+                  {pageSize}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Typography variant="body2">Go to</Typography>
+
+            <TextField
+              size="small"
+              type="number"
+              defaultValue={table.getState().pagination.pageIndex + 1}
+              onChange={(e) => {
+                const page = e.target.value ? Number(e.target.value) - 1 : 0;
+
+                table.setPageIndex(page);
+              }}
+              sx={{ width: 70 }}
+            />
+          </Stack>
+
+          <Stack direction="row" spacing={1}>
+            <IconButton
+              onClick={() => table.setPageIndex(0)}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <FirstPageIcon />
+            </IconButton>
+
+            <IconButton
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeftIcon />
+            </IconButton>
+
+            <Button variant="contained" size="small">
+              {table.getState().pagination.pageIndex + 1}
+            </Button>
+
+            <IconButton
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <ChevronRightIcon />
+            </IconButton>
+
+            <IconButton
+              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+              disabled={!table.getCanNextPage()}
+            >
+              <LastPageIcon />
+            </IconButton>
+          </Stack>
+        </Box>
+      </Paper>
+
+      {/* FORM */}
       {openForm && (
         <SupplierForm
           open={openForm}
           data={editData}
-          onClose={() => setOpenForm(false)}
+          loading={loading}
+          onClose={() => {
+            setOpenForm(false);
+            setEditData(null);
+          }}
           onSave={handleSave}
         />
       )}
-      <Snackbar
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setSelectedSupplier(null);
+        }}
+        onConfirm={confirmDeleteSupplier}
+        title="Delete Supplier"
+        message="Are you sure you want to delete this supplier?"
+      />
+      <CommonSnackbar
         open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert
-          severity={snackbar.severity}
-          variant="filled"
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          sx={{
-            minWidth: 360,
-            fontWeight: 500,
-            fontSize: 14,
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </PageContainer>
+        handleClose={handleCloseSnackbar}
+        message={snackbar.message}
+        severity={snackbar.severity}
+      />
+    </Box>
   );
 }
