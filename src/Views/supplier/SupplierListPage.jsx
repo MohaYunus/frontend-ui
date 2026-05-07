@@ -82,43 +82,36 @@ export default function SupplierListPage() {
     severity: "success",
   });
 
-const handleCloseSnackbar = () => {
-  setSnackbar((prev) => ({
-    ...prev,
-    open: false,
-  }));
-};
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({
+      ...prev,
+      open: false,
+    }));
+  };
   // FETCH SUPPLIERS
   const fetchSuppliers = async () => {
-  try {
+    try {
+      setLoading(true);
 
-    setLoading(true);
+      const response = await getSuppliersApi(1, 1000);
 
-    const response = await getSuppliersApi(1, 1000);
+      console.log(response);
 
-    console.log(response);
+      setSuppliers(response?.data?.data || []);
+    } catch (error) {
+      console.log(error);
 
-    setSuppliers(
-      response?.data?.data || []
-    );
+      setSuppliers([]);
 
-  } catch (error) {
-
-    console.log(error);
-
-    setSuppliers([]);
-
-    setSnackbar({
-      open: true,
-      message: "Failed to fetch suppliers",
-      severity: "error",
-    });
-
-  } finally {
-
-    setLoading(false);
-  }
-};
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch suppliers",
+        severity: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchSuppliers();
@@ -198,48 +191,37 @@ const handleCloseSnackbar = () => {
     setDeleteDialogOpen(true);
   };
 
-const confirmDeleteSupplier = async () => {
+  const confirmDeleteSupplier = async () => {
+    try {
+      setLoading(true);
 
-  try {
-
-    setLoading(true);
-
-    await deleteSupplierApi(
-      selectedSupplier.SUPPLIER_ID,
-      {
+      await deleteSupplierApi(selectedSupplier.SUPPLIER_ID, {
         updatedBy: 1000,
-      }
-    );
+      });
 
-    setSnackbar({
-      open: true,
-      message: "Supplier deleted successfully",
-      severity: "success",
-    });
+      setSnackbar({
+        open: true,
+        message: "Supplier deleted successfully",
+        severity: "success",
+      });
 
-    setDeleteDialogOpen(false);
+      setDeleteDialogOpen(false);
 
-    setSelectedSupplier(null);
+      setSelectedSupplier(null);
 
-    fetchSuppliers();
+      fetchSuppliers();
+    } catch (error) {
+      console.log(error);
 
-  } catch (error) {
-
-    console.log(error);
-
-    setSnackbar({
-      open: true,
-      message:
-        error?.response?.data?.message ||
-        "Failed to delete supplier",
-      severity: "error",
-    });
-
-  } finally {
-
-    setLoading(false);
-  }
-};
+      setSnackbar({
+        open: true,
+        message: error?.response?.data?.message || "Failed to delete supplier",
+        severity: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // FILTERED DATA
   const filteredData = useMemo(() => {

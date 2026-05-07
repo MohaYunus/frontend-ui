@@ -6,32 +6,26 @@ import {
   DialogTitle,
   Stack,
   TextField,
-} from '@mui/material';
-import { useEffect, useState } from 'react';
+} from "@mui/material";
+import { useEffect, useState } from "react";
 
 const initialFormState = {
-  name: '',
-  contactPerson: '',
-  phone: '',
-  gstNumber: '',
+  name: "",
+  contactPerson: "",
+  phone: "",
+  gstNumber: "",
 };
 
-export default function SupplierForm({
-  open,
-  onClose,
-  onSave,
-  data,
-  loading,
-}) {
+export default function SupplierForm({ open, onClose, onSave, data, loading }) {
   const [form, setForm] = useState(initialFormState);
 
   useEffect(() => {
     if (data) {
       setForm({
-        name: data.COMPANY_NAME || '',
-        contactPerson: data.CONTACT_NAME || '',
-        phone: data.PHONE_NUMBER || '',
-        gstNumber: data.GST_NUMBER || '',
+        name: data.COMPANY_NAME || "",
+        contactPerson: data.CONTACT_NAME || "",
+        phone: data.PHONE_NUMBER || "",
+        gstNumber: data.GST_NUMBER || "",
       });
     } else {
       setForm(initialFormState);
@@ -53,9 +47,7 @@ export default function SupplierForm({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>
-        {data ? 'Edit Supplier' : 'Add Supplier'}
-      </DialogTitle>
+      <DialogTitle>{data ? "Edit Supplier" : "Add Supplier"}</DialogTitle>
 
       <DialogContent>
         <Stack spacing={2} mt={1}>
@@ -101,12 +93,8 @@ export default function SupplierForm({
           Cancel
         </Button>
 
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? 'Saving...' : 'Save'}
+        <Button variant="contained" onClick={handleSubmit} disabled={loading}>
+          {loading ? "Saving..." : "Save"}
         </Button>
       </DialogActions>
     </Dialog>
